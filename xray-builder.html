@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xray Ultimate Configurator</title>
+    <style>
+        :root {
+            --bg: #121212;
+            --surface: #1e1e1e;
+            --surface-hover: #2d2d2d;
+            --primary: #bb86fc;
+            --secondary: #03dac6;
+            --error: #cf6679;
+            --text: #e0e0e0;
+            --text-sec: #a0a0a0;
+            --border: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            color: var(--text-sec);
+            padding: 15px 20px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-btn:hover { background: var(--surface-hover); color: var(--text); }
+        .nav-btn.active { color: var(--primary); border-left-color: var(--primary); background: rgba(187, 134, 252, 0.05); }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        h2 { color: var(--primary); margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+
+        /* Forms & Inputs */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: var(--text-sec); font-size: 0.9em; }
+        
+        input, select, textarea {
+            width: 100%;
+            background: #2c2c2c;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        input:focus, select:focus { outline: none; border-color: var(--primary); }
+
+        .row { display: flex; gap: 15px; }
+        .col { flex: 1; }
+
+        /* Checkbox Switch */
+        .switch-group { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; background: #252525; padding: 10px; border-radius: 4px;}
+        input[type="checkbox"] { width: auto; transform: scale(1.2); }
+
+        /* Lists & Drag-and-Drop */
+        .item-list { list-style: none; padding: 0; margin: 0; }
+        
+        .list-item {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move; /* Drag cursor */
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .list-item:hover { border-color: var(--text-sec); }
+        .list-item.dragging { opacity: 0.5; border-color: var(--primary); }
+
+        .item-info strong { color: var(--secondary); display: block; }
+        .item-info span { font-size: 0.85em; color: var(--text-sec); }
+
+        .item-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 5px;
+            opacity: 0.7;
+        }
+        .item-actions button:hover { opacity: 1; }
+        .btn-edit { color: var(--primary); }
+        .btn-del { color: var(--error); }
+
+        /* Buttons */
+        .btn-primary {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-primary:hover { opacity: 0.9; }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.open { display: flex; }
+        .modal-content {
+            background: var(--surface);
+            padding: 25px;
+            border-radius: 8px;
+            width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* JSON Output */
+        .json-output {
+            width: 100%;
+            height: 500px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            color: #a6e3a1;
+            background: #101015;
+            border: none;
+            resize: none;
+            padding: 15px;
+        }
+        
+        .hidden { display: none !important; }
+        
+        .drag-handle {
+            margin-right: 15px;
+            color: var(--text-sec);
+            font-size: 1.5em;
+            cursor: grab;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Навигация -->
+<div class="sidebar">
+    <div style="padding: 20px; text-align: center; font-weight: bold; color: var(--primary);">Xray Config Gen</div>
+    <button class="nav-btn active" onclick="switchTab('inbounds')">📥 Inbounds</button>
+    <button class="nav-btn" onclick="switchTab('outbounds')">📤 Outbounds</button>
+    <button class="nav-btn" onclick="switchTab('routing')">🔀 Routing</button>
+    <button class="nav-btn" onclick="switchTab('result')">💾 Result JSON</button>
+</div>
+
+<!-- Основная часть -->
+<div class="main">
+    
+    <!-- Tab: Inbounds -->
+    <div id="tab-inbounds" class="section active">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>Входящие соединения (Inbounds)</h2>
+            <button class="btn-primary" onclick="openModal('inbound')">➕ Добавить</button>
+        </div>
+        <ul id="inbounds-list" class="item-list"></ul>
+    </div>
+
+    <!-- Tab: Outbounds -->
+    <div id="tab-outbounds" class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>Исходящие соединения (Outbounds)</h2>
+            <button class="btn-primary" onclick="openModal('outbound')">➕ Добавить</button>
+        </div>
+        <ul id="outbounds-list" class="item-list"></ul>
+    </div>
+
+    <!-- Tab: Routing -->
+    <div id="tab-routing" class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>Маршрутизация (Routing Rules)</h2>
+            <button class="btn-primary" onclick="openModal('rule')">➕ Добавить правило</button>
+        </div>
+        <p style="color: var(--text-sec); font-size: 0.9em;">ℹ️ Правила обрабатываются сверху вниз. Перетащите, чтобы изменить приоритет.</p>
+        <ul id="rules-list" class="item-list"></ul>
+    </div>
+
+    <!-- Tab: Result -->
+    <div id="tab-result" class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>Итоговый конфиг</h2>
+            <button class="btn-primary" onclick="copyConfig()">📋 Копировать</button>
+        </div>
+        <textarea id="final-json" class="json-output" readonly></textarea>
+    </div>
+</div>
+
+<!-- Модальное окно (универсальное) -->
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <h3 id="modal-title">Настройка</h3>
+        <div id="modal-body"></div>
+        <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="closeModal()" style="background:transparent; border:1px solid var(--border); color:var(--text); padding:10px 20px; border-radius:4px; cursor:pointer;">Отмена</button>
+            <button id="modal-save-btn" class="btn-primary">Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Состояние приложения ---
+    let state = {
+        inbounds: [
+            { tag: "in-vless", protocol: "vless", port: 443, uuid: generateUUID(), flow: "xtls-rprx-vision", security: "reality", sni: "google.com" }
+        ],
+        outbounds: [
+            { tag: "direct", protocol: "freedom" },
+            { tag: "block", protocol: "blackhole" }
+        ],
+        rules: [
+            { type: "field", outboundTag: "block", domain: ["geosite:category-ads-all"] },
+            { type: "field", outboundTag: "block", ip: ["geoip:private"] },
+            { type: "field", outboundTag: "direct", domain: ["geosite:cn"] }
+        ]
+    };
+
+    let editingIndex = -1;
+    let editingType = null; // 'inbound', 'outbound', 'rule'
+
+    // --- Инициализация ---
+    document.addEventListener('DOMContentLoaded', () => {
+        renderAll();
+    });
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        
+        event.target.classList.add('active');
+        document.getElementById('tab-' + tabId).classList.add('active');
+
+        if (tabId === 'result') generateConfig();
+    }
+
+    // --- Рендеринг списков ---
+    function renderAll() {
+        renderList('inbounds-list', state.inbounds, renderInboundItem, 'inbounds');
+        renderList('outbounds-list', state.outbounds, renderOutboundItem, 'outbounds');
+        renderList('rules-list', state.rules, renderRuleItem, 'rules');
+    }
+
+    function renderList(elementId, dataArray, renderer, type) {
+        const list = document.getElementById(elementId);
+        list.innerHTML = '';
+        dataArray.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.className = 'list-item';
+            li.draggable = true;
+            li.dataset.index = index;
+            li.dataset.type = type;
+            
+            // Drag Events
+            li.addEventListener('dragstart', handleDragStart);
+            li.addEventListener('dragover', handleDragOver);
+            li.addEventListener('drop', handleDrop);
+            li.addEventListener('dragenter', handleDragEnter);
+            li.addEventListener('dragleave', handleDragLeave);
+
+            li.innerHTML = `
+                <div style="display:flex; align-items:center;">
+                    <div class="drag-handle">☰</div>
+                    <div class="item-info">${renderer(item)}</div>
+                </div>
+                <div class="item-actions">
+                    <button class="btn-edit" onclick="editItem('${type}', ${index})">✎</button>
+                    <button class="btn-del" onclick="deleteItem('${type}', ${index})">✖</button>
+                </div>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    function renderInboundItem(item) {
+        return `<strong>${item.tag || 'No Tag'}</strong> <span>${item.protocol.toUpperCase()} : ${item.port} | ${item.security}</span>`;
+    }
+    function renderOutboundItem(item) {
+        return `<strong>${item.tag}</strong> <span>${item.protocol.toUpperCase()}</span>`;
+    }
+    function renderRuleItem(item) {
+        let desc = item.domain ? `Domain: ${item.domain.slice(0,2)}...` : (item.ip ? `IP: ${item.ip.slice(0,2)}...` : 'Match All');
+        return `<strong>To -> ${item.outboundTag}</strong> <span>${desc}</span>`;
+    }
+
+    // --- Drag and Drop Logic ---
+    let dragSrcEl = null;
+    let dragType = null;
+
+    function handleDragStart(e) {
+        dragSrcEl = this;
+        dragType = this.dataset.type;
+        e.dataTransfer.effectAllowed = 'move';
+        this.classList.add('dragging');
+    }
+
+    function handleDragOver(e) {
+        if (e.preventDefault) e.preventDefault();
+        return false;
+    }
+
+    function handleDragEnter(e) { this.classList.add('over'); }
+    function handleDragLeave(e) { this.classList.remove('over'); }
+
+    function handleDrop(e) {
+        e.stopPropagation();
+        if (dragSrcEl !== this && this.dataset.type === dragType) {
+            const oldIndex = parseInt(dragSrcEl.dataset.index);
+            const newIndex = parseInt(this.dataset.index);
+            
+            // Reorder array
+            const arr = state[dragType];
+            const [movedItem] = arr.splice(oldIndex, 1);
+            arr.splice(newIndex, 0, movedItem);
+            
+            renderAll();
+        }
+        return false;
+    }
+
+    // --- Формы и Модалка ---
+    function openModal(type, index = -1) {
+        editingType = type;
+        editingIndex = index;
+        const isEdit = index !== -1;
+        const data = isEdit ? (type === 'inbound' ? state.inbounds[index] : (type === 'outbound' ? state.outbounds[index] : state.rules[index])) : {};
+
+        document.getElementById('modal-title').innerText = isEdit ? `Редактировать ${type}` : `Добавить ${type}`;
+        const body = document.getElementById('modal-body');
+        body.innerHTML = '';
+
+        if (type === 'inbound') buildInboundForm(body, data);
+        else if (type === 'outbound') buildOutboundForm(body, data);
+        else if (type === 'rule') buildRuleForm(body, data);
+
+        document.getElementById('modal').classList.add('open');
+        document.getElementById('modal-save-btn').onclick = () => saveItem(type, index);
+    }
+
+    function closeModal() {
+        document.getElementById('modal').classList.remove('open');
+    }
+
+    // Генерация формы Inbound
+    function buildInboundForm(container, data) {
+        container.innerHTML = `
+            <div class="row">
+                <div class="col">
+                    <label>Tag</label>
+                    <input type="text" id="inp-tag" value="${data.tag || 'in-' + Math.floor(Math.random()*1000)}">
+                </div>
+                <div class="col">
+                    <label>Port</label>
+                    <input type="number" id="inp-port" value="${data.port || 443}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Protocol</label>
+                <select id="inp-protocol" onchange="updateInboundFields()">
+                    <option value="vless" ${data.protocol === 'vless' ? 'selected' : ''}>VLESS</option>
+                    <option value="vmess" ${data.protocol === 'vmess' ? 'selected' : ''}>VMess</option>
+                    <option value="trojan" ${data.protocol === 'trojan' ? 'selected' : ''}>Trojan</option>
+                    <option value="shadowsocks" ${data.protocol === 'shadowsocks' ? 'selected' : ''}>Shadowsocks</option>
+                    <option value="dokodemo-door" ${data.protocol === 'dokodemo-door' ? 'selected' : ''}>Dokodemo-door</option>
+                </select>
+            </div>
+            <div class="form-group" id="grp-uuid">
+                <label>UUID / Password</label>
+                <div class="row">
+                    <input type="text" id="inp-uuid" value="${data.uuid || data.password || ''}">
+                    <button style="width:auto; cursor:pointer;" onclick="document.getElementById('inp-uuid').value = generateUUID()">🎲</button>
+                </div>
+            </div>
+            
+            <div class="section-box" style="border:1px solid #444; padding:10px; border-radius:4px; margin-top:10px;">
+                <label>Stream Settings</label>
+                <div class="row">
+                    <div class="col">
+                        <label>Network</label>
+                        <select id="inp-network">
+                            <option value="tcp" ${data.network === 'tcp' ? 'selected' : ''}>TCP</option>
+                            <option value="ws" ${data.network === 'ws' ? 'selected' : ''}>WebSocket</option>
+                            <option value="grpc" ${data.network === 'grpc' ? 'selected' : ''}>gRPC</option>
+                        </select>
+                    </div>
+                    <div class="col">
+                        <label>Security</label>
+                        <select id="inp-security" onchange="updateInboundFields()">
+                            <option value="none" ${data.security === 'none' ? 'selected' : ''}>None</option>
+                            <option value="tls" ${data.security === 'tls' ? 'selected' : ''}>TLS</option>
+                            <option value="reality" ${data.security === 'reality' ? 'selected' : ''}>Reality</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Reality Fields -->
+                <div id="grp-reality" class="hidden" style="margin-top:10px; background:#222; padding:10px;">
+                    <label style="color:var(--primary)">Reality Settings</label>
+                    <div class="form-group"><label>Dest</label><input type="text" id="inp-dest" value="${data.dest || 'www.microsoft.com:443'}"></div>
+                    <div class="form-group"><label>SNI</label><input type="text" id="inp-sni" value="${data.sni || 'www.microsoft.com'}"></div>
+                    <div class="form-group"><label>Private Key (X25519)</label><input type="text" id="inp-privatekey" value="${data.privateKey || ''}"></div>
+                    <div class="form-group"><label>ShortIds</label><input type="text" id="inp-shortids" value="${data.shortIds || ''}"></div>
+                </div>
+                
+                <!-- Flow Field (Vision) -->
+                <div id="grp-flow" class="form-group hidden" style="margin-top:10px;">
+                    <label>Flow</label>
+                    <select id="inp-flow">
+                        <option value="">None</option>
+                        <option value="xtls-rprx-vision" ${data.flow === 'xtls-rprx-vision' ? 'selected' : ''}>xtls-rprx-vision (Vision)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="switch-group" style="margin-top:10px;">
+                 <input type="checkbox" id="inp-sniffing" ${data.sniffing !== false ? 'checked' : ''}>
+                 <label for="inp-sniffing" style="margin:0">Enable Sniffing (Recommended)</label>
+            </div>
+        `;
+        updateInboundFields();
+    }
+
+    function updateInboundFields() {
+        const proto = document.getElementById('inp-protocol').value;
+        const sec = document.getElementById('inp-security').value;
+        
+        // Show/Hide Reality
+        if (sec === 'reality') document.getElementById('grp-reality').classList.remove('hidden');
+        else document.getElementById('grp-reality').classList.add('hidden');
+
+        // Show/Hide Flow (Only for VLESS + TLS/Reality)
+        if (proto === 'vless' && (sec === 'tls' || sec === 'reality')) {
+            document.getElementById('grp-flow').classList.remove('hidden');
+        } else {
+            document.getElementById('grp-flow').classList.add('hidden');
+        }
+    }
+
+    // Генерация формы Outbound
+    function buildOutboundForm(container, data) {
+        container.innerHTML = `
+            <div class="form-group">
+                <label>Tag</label>
+                <input type="text" id="out-tag" value="${data.tag || ''}">
+            </div>
+            <div class="form-group">
+                <label>Protocol</label>
+                <select id="out-protocol">
+                    <option value="freedom" ${data.protocol === 'freedom' ? 'selected' : ''}>Freedom (Direct)</option>
+                    <option value="blackhole" ${data.protocol === 'blackhole' ? 'selected' : ''}>Blackhole (Block)</option>
+                    <option value="wireguard" ${data.protocol === 'wireguard' ? 'selected' : ''}>WireGuard</option>
+                    <option value="socks" ${data.protocol === 'socks' ? 'selected' : ''}>Socks</option>
+                    <option value="vless" ${data.protocol === 'vless' ? 'selected' : ''}>VLESS (Proxy)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                 <p style="font-size:0.8em; color:#777;">* Детальные настройки Socks/WireGuard вставляются в JSON вручную или я могу расширить форму, если нужно.</p>
+            </div>
+        `;
+    }
+
+    // Генерация формы Routing
+    function buildRuleForm(container, data) {
+        // Создаем опции из существующих тегов
+        let outboundOptions = state.outbounds.map(o => `<option value="${o.tag}" ${data.outboundTag === o.tag ? 'selected' : ''}>${o.tag}</option>`).join('');
+
+        container.innerHTML = `
+            <div class="form-group">
+                <label>Target Outbound</label>
+                <select id="rule-outtag">${outboundOptions}</select>
+            </div>
+            <div class="form-group">
+                <label>Domains (comma separated)</label>
+                <textarea id="rule-domain" rows="3" placeholder="geosite:google, google.com">${data.domain ? data.domain.join(', ') : ''}</textarea>
+            </div>
+            <div class="form-group">
+                <label>IPs (comma separated)</label>
+                <textarea id="rule-ip" rows="3" placeholder="geoip:us, 8.8.8.8">${data.ip ? data.ip.join(', ') : ''}</textarea>
+            </div>
+             <div class="form-group">
+                <label>Source IPs</label>
+                <textarea id="rule-source" rows="2" placeholder="192.168.1.1">${data.source ? data.source.join(', ') : ''}</textarea>
+            </div>
+        `;
+    }
+
+    // --- Сохранение данных ---
+    function saveItem(type, index) {
+        let newItem = {};
+        
+        if (type === 'inbound') {
+            newItem.tag = document.getElementById('inp-tag').value;
+            newItem.port = parseInt(document.getElementById('inp-port').value);
+            newItem.protocol = document.getElementById('inp-protocol').value;
+            newItem.network = document.getElementById('inp-network').value;
+            newItem.security = document.getElementById('inp-security').value;
+            newItem.sniffing = document.getElementById('inp-sniffing').checked;
+
+            const uuid = document.getElementById('inp-uuid').value;
+            if (newItem.protocol === 'trojan') newItem.password = uuid;
+            else if (newItem.protocol === 'shadowsocks') newItem.password = uuid;
+            else newItem.uuid = uuid;
+
+            if (newItem.security === 'reality') {
+                newItem.dest = document.getElementById('inp-dest').value;
+                newItem.sni = document.getElementById('inp-sni').value;
+                newItem.privateKey = document.getElementById('inp-privatekey').value;
+                newItem.shortIds = document.getElementById('inp-shortids').value;
+                newItem.flow = document.getElementById('inp-flow').value;
+            } else if (newItem.security === 'tls' && newItem.protocol === 'vless') {
+                newItem.flow = document.getElementById('inp-flow').value;
+            }
+        } 
+        else if (type === 'outbound') {
+            newItem.tag = document.getElementById('out-tag').value;
+            newItem.protocol = document.getElementById('out-protocol').value;
+        } 
+        else if (type === 'rule') {
+            newItem.type = "field";
+            newItem.outboundTag = document.getElementById('rule-outtag').value;
+            const dom = document.getElementById('rule-domain').value;
+            const ip = document.getElementById('rule-ip').value;
+            const src = document.getElementById('rule-source').value;
+            
+            if(dom.trim()) newItem.domain = dom.split(',').map(s=>s.trim());
+            if(ip.trim()) newItem.ip = ip.split(',').map(s=>s.trim());
+            if(src.trim()) newItem.source = src.split(',').map(s=>s.trim());
+        }
+
+        if (index === -1) {
+            if (type === 'inbounds') state.inbounds.push(newItem); // bug fix: type naming
+            else if (type === 'outbounds') state.outbounds.push(newItem);
+            else if (type === 'rules') state.rules.push(newItem);
+            else { // Fallback for correct array map
+                 if(type === 'inbound') state.inbounds.push(newItem);
+                 if(type === 'outbound') state.outbounds.push(newItem);
+                 if(type === 'rule') state.rules.push(newItem);
+            }
+        } else {
+             if(type === 'inbound') state.inbounds[index] = newItem;
+             if(type === 'outbound') state.outbounds[index] = newItem;
+             if(type === 'rule') state.rules[index] = newItem;
+        }
+
+        closeModal();
+        renderAll();
+    }
+
+    function deleteItem(type, index) {
+        if (!confirm('Удалить?')) return;
+        state[type].splice(index, 1);
+        renderAll();
+    }
+
+    // --- Генерация финального JSON ---
+    function generateConfig() {
+        const config = {
+            log: { loglevel: "warning" },
+            inbounds: state.inbounds.map(inb => {
+                let obj = {
+                    tag: inb.tag,
+                    port: inb.port,
+                    protocol: inb.protocol,
+                    settings: {},
+                    streamSettings: {
+                        network: inb.network || "tcp",
+                        security: inb.security,
+                        tcpSettings: {},
+                        wsSettings: {},
+                        grpcSettings: {}
+                    },
+                    sniffing: { enabled: inb.sniffing, destOverride: ["http", "tls", "quic"], routeOnly: true }
+                };
+
+                // Settings based on protocol
+                if (inb.protocol === 'vless') {
+                    obj.settings.clients = [{ id: inb.uuid, flow: inb.flow || "" }];
+                    obj.settings.decryption = "none";
+                } else if (inb.protocol === 'vmess') {
+                    obj.settings.clients = [{ id: inb.uuid, alterId: 0 }];
+                } else if (inb.protocol === 'trojan') {
+                    obj.settings.clients = [{ password: inb.password }];
+                } else if (inb.protocol === 'shadowsocks') {
+                    obj.settings.password = inb.password;
+                    obj.settings.method = "aes-256-gcm";
+                    obj.settings.network = "tcp,udp";
+                }
+
+                // Stream Settings
+                if (inb.security === 'reality') {
+                    obj.streamSettings.realitySettings = {
+                        show: false,
+                        dest: inb.dest,
+                        xver: 0,
+                        serverNames: [inb.sni],
+                        privateKey: inb.privateKey,
+                        shortIds: inb.shortIds ? [inb.shortIds] : [""]
+                    };
+                }
+                
+                return obj;
+            }),
+            outbounds: state.outbounds.map(out => {
+                let obj = { tag: out.tag, protocol: out.protocol };
+                if (out.protocol === 'wireguard') {
+                    obj.settings = { secretKey: "INSERT_KEY", peers: [{ publicKey: "INSERT_PUB", endpoint: "1.1.1.1:2408" }] };
+                }
+                return obj;
+            }),
+            routing: {
+                domainStrategy: "IPIfNonMatch",
+                rules: state.rules
+            }
+        };
+
+        document.getElementById('final-json').value = JSON.stringify(config, null, 2);
+    }
+
+    function copyConfig() {
+        const copyText = document.getElementById("final-json");
+        copyText.select();
+        document.execCommand("copy");
+        alert("JSON скопирован в буфер обмена!");
+    }
+
+    function generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+</script>
+
+</body>
+</html>
